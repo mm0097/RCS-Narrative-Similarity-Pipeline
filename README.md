@@ -44,7 +44,7 @@ story text
             node_aggregation  → 1152-D  (3 × 384, MiniLM sum-pooled per node type)
             gnn               → 2048-D  (HeteroGNN Story node readout)
             gemini            → 2048-D  (Gemini text-embedding-004 on full story)
-            fused             → score-level average of node_aggregation + gemini
+            fused             → 2048-D  (0.5 × norm(gnn) + 0.5 × norm(gemini))
 ```
 
 ### GNN Architecture
@@ -92,7 +92,7 @@ python pipeline/run_pipeline.py \
 | `node_aggregation` | all-MiniLM + graph | 1152 | Fast, no API key needed |
 | `gnn` | all-MiniLM + GNN | 2048 | Requires trained checkpoint |
 | `gemini` | Gemini API | 2048 | Requires `GEMINI_API_KEY` |
-| `fused` | node_aggregation + gemini | score-level | Averages cosine scores |
+| `fused` | GNN story-node readout + Gemini | 2048 | Embedding-level: `0.5*(norm(gnn) + norm(gemini))` |
 
 ### Output format
 
@@ -119,6 +119,43 @@ python pipeline/run_pipeline.py \
     --method fused \
     --gemini-key $GEMINI_API_KEY
 ```
+
+---
+
+## Prediction — `predict.py`
+
+Generates predictions for a test file in the same format as the labelled dev set (`dev_track_a.jsonl`): original fields preserved, `text_a_is_closer` appended.
+
+### Usage
+
+```bash
+python predict.py \
+    --input  test_track_a.jsonl \
+    --output predictions.jsonl \
+    --method fused
+```
+
+### Output format
+
+Each output line mirrors `dev_track_a.jsonl`:
+
+```json
+{
+  "anchor_text": "...",
+  "text_a": "...",
+  "text_b": "...",
+  "text_a_is_closer": true
+}
+```
+
+### Options
+
+| Flag | Default | Description |
+|---|---|---|
+| `--input` | `test_track_a.jsonl` | Input JSONL (no labels required) |
+| `--output` | `predictions.jsonl` | Output JSONL |
+| `--method` | `fused` | `fused` / `gnn` / `gemini` / `node_aggregation` |
+| `--gemini-key` | — | Gemini API key (or set `GEMINI_API_KEY`) |
 
 ---
 
@@ -214,5 +251,6 @@ model.eval()
 | `gnn.py` | `HeteroGNN` model definition |
 | `graph_embedding.py` | `node_aggregation`, `gnn_embedding`, `story_to_graph_embedding` |
 | `evaluate.py` | `cosine_similarity`, `evaluate_triplet`, `run_evaluation` |
-| `run_pipeline.py` | CLI inference entry point |
+| `run_pipeline.py` | CLI inference entry point (outputs sim scores + predicted label) |
+| `predict.py` | Prediction script — outputs in `dev_track_a.jsonl` format |
 | `train_gnn.py` | CLI training entry point (preprocess + train) |

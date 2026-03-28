@@ -51,29 +51,40 @@ def build_embed_fn(method: str):
     elif method == "gemini":
         return embed_story_gemini
     elif method == "fused":
-        # Returns a special marker; fused scoring is handled separately
+        # Fused scoring (GNN story-node readout + Gemini) is handled separately
         return None
     else:
         raise ValueError(f"Unknown method: {method!r}")
 
 
+def _fuse(gnn_emb: np.ndarray, gemini_emb: np.ndarray) -> np.ndarray:
+    """L2-normalise each 2048-D vector, then average: 0.5*(norm(gnn) + norm(gemini))."""
+    g = gnn_emb / (np.linalg.norm(gnn_emb) + 1e-8)
+    s = gemini_emb / (np.linalg.norm(gemini_emb) + 1e-8)
+    return 0.5 * (g + s)
+
+
 def score_triplet_fused(anchor: str, text_a: str, text_b: str) -> tuple[float, float, bool]:
     """
-    Fused scoring: average of graph cosine and Gemini cosine.
-    Score-level fusion avoids dimension mismatch.
+    Fused scoring: embedding-level fusion of GNN story-node readout (2048-D)
+    and Gemini (2048-D). Fused vector = 0.5*(norm(gnn) + norm(gemini)).
     """
-    # Graph embeddings (node_aggregation)
-    g_anchor = story_to_graph_embedding(anchor, method="node_aggregation")
-    g_a = story_to_graph_embedding(text_a, method="node_aggregation")
-    g_b = story_to_graph_embedding(text_b, method="node_aggregation")
+    # GNN story-node readout → 2048-D
+    g_anchor = story_to_graph_embedding(anchor, method="gnn")
+    g_a = story_to_graph_embedding(text_a, method="gnn")
+    g_b = story_to_graph_embedding(text_b, method="gnn")
 
-    # Gemini embeddings
+    # Gemini embeddings → 2048-D
     sem_anchor = embed_story_gemini(anchor)
     sem_a = embed_story_gemini(text_a)
     sem_b = embed_story_gemini(text_b)
 
-    sim_a = 0.5 * cosine_similarity(g_anchor, g_a) + 0.5 * cosine_similarity(sem_anchor, sem_a)
-    sim_b = 0.5 * cosine_similarity(g_anchor, g_b) + 0.5 * cosine_similarity(sem_anchor, sem_b)
+    fused_anchor = _fuse(g_anchor, sem_anchor)
+    fused_a = _fuse(g_a, sem_a)
+    fused_b = _fuse(g_b, sem_b)
+
+    sim_a = cosine_similarity(fused_anchor, fused_a)
+    sim_b = cosine_similarity(fused_anchor, fused_b)
 
     return sim_a, sim_b, sim_a > sim_b
 
