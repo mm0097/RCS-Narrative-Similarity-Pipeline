@@ -1,0 +1,12 @@
+LLM_MODEL = "gpt-oss:20b"          # Ollama LLM
+MINILM_MODEL = "all-MiniLM-L6-v2"  # sentence-transformers
+MINILM_DIM = 384                    # all-MiniLM output dim
+GEMINI_MODEL = "models/text-embedding-004"
+GEMINI_DIM = 2048                   # output_dimensionality for Gemini
+GRAPH_EMB_DIM = MINILM_DIM * 3    # 1152 (theme+action+outcome concat)
+LLM_TEMPERATURE = 0.0
+SEMANTIC_EDGE_CONFIDENCE_THRESHOLD = 0.7
+USE_LLM_SEMANTIC_EDGES = True
+GNN_HIDDEN = 512
+GNN_OUT = 2048                     # linear projection output dim
+GNN_LAYERS = 3

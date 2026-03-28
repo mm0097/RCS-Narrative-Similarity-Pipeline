@@ -1,0 +1,11 @@
+ollama
+sentence-transformers
+google-generativeai
+torch
+torch-geometric
+networkx
+numpy
+pydantic
+python-dotenv
+tqdm
+scikit-learn
